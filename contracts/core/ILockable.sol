@@ -8,5 +8,5 @@ interface ILockable {
     /**
      * This contract considers itself to be in a "locked" state
      */
-    function isLocked() external view returns(bool);
+    function isLocked() external view returns (bool);
 }

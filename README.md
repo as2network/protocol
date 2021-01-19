@@ -1,4 +1,4 @@
-# `Solidity Truffle Boilerplate`
+# `AS2 Network Ethereum Transaction Service`
 
   </p>
 </p>
@@ -31,22 +31,6 @@ $ yarn test
 $ yarn coverage
 ```
 
-### Deploying
-
-Deploy to Kovan:
-
-```bash
-$ NETWORK=kovan yarn deploy
-```
-
-## Verifying Contract Code
-
-```bash
-$ NETWORK=kovan yarn run verify YourContractName
-```
-
 ## License
 
-SPDX-License-Identifier: MIT/ISC
-
-
+GPL-2.0-Only

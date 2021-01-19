@@ -8,7 +8,6 @@ import "./ILockable.sol";
 import "../imports/Initializable.sol";
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 
-
 // @title Adjudicator: Fraud Proofs
 // @notice We have three contracts.
 // - Relay: Used by the relayer to submit responses.
@@ -21,12 +20,12 @@ import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 // that evidence/logs are automatically produced for later use.
 // @dev Dependency on the DataRegistry and Relayer contract
 contract Adjudicator is RelayTxStruct, ILockable, Initializable {
-
     using ECDSA for bytes32;
 
     // Lock external deposits when relayer fails to compensate the user.
     bool private locked;
-    function isLocked() override public view returns(bool) {
+
+    function isLocked() public view override returns (bool) {
         return locked;
     }
 
@@ -46,32 +45,35 @@ contract Adjudicator is RelayTxStruct, ILockable, Initializable {
     address public receiptSigner; // All receipts are signed by this key.
 
     // Time (blocks) to issue a compensation.
-    uint public compensationPeriod;
+    uint256 public compensationPeriod;
 
     struct CompensationRecord {
         CompensationStatus status; // Defaults to CompensationStatus.NONE
-        uint deadline; // User must be compensated by (or on) this block height
+        uint256 deadline; // User must be compensated by (or on) this block height
     }
 
-    event RequestCompensation(bytes32 indexed relayTxId, address user, uint compensation, uint deadline);
-    event CompensationIssued(bytes32 indexed relayTxId, address relayer, address user, uint compensation);
+    event RequestCompensation(bytes32 indexed relayTxId, address user, uint256 compensation, uint256 deadline);
+    event CompensationIssued(bytes32 indexed relayTxId, address relayer, address user, uint256 compensation);
     event Locked();
 
     // @param _relay Relay contract
     // @param _receiptSigner Receipt signer
     // @param _compensationPeriod Issue compensation grace period (number of blocks)
-    function initialize(Relay _relay, address _receiptSigner, uint _compensationPeriod) initializer public {
+    function initialize(
+        Relay _relay,
+        address _receiptSigner,
+        uint256 _compensationPeriod
+    ) public initializer {
         relay = _relay;
         compensationPeriod = _compensationPeriod;
         receiptSigner = _receiptSigner;
     }
-    
+
     // @param _relayTx RelayTx with the relay transaction
     // @param _sig Relayer's signature for the relay tx.
     // @Dev User can submit a receipt (relay tx + relayer sig) by the relayer and this contract will verify if the
     // relayed transaction was performed. If not, it triggers the compensation process for the customer.
     function requestCompensation(RelayTx memory _relayTx, bytes memory _sig) public {
-
         require(_relayTx.relay == address(relay), "Mismatching relay address in the relay tx.");
         require(block.number > _relayTx.deadline, "The relayer still has time to finish the job.");
         require(_relayTx.compensation != 0, "No compensation promised to customer in relay tx.");
@@ -93,7 +95,7 @@ contract Adjudicator is RelayTxStruct, ILockable, Initializable {
         // And [time for anysender to do job] must NEVER be greater than INTERVAL/2.
         // In practice, the DataRegistry should be 30 days or more, so we are unlikely to accept a job
         // longer than 60 days to relay.
-        uint intervalHalf = relay.getInterval()/2;
+        uint256 intervalHalf = relay.getInterval() / 2;
 
         // Overflow is not an issue as .deadline must be a larger number (i.e. overflowing to 1 does not benefit attack).
         require(_relayTx.deadline + intervalHalf > block.number, "Record may no longer exist in the registry.");
@@ -111,45 +113,54 @@ contract Adjudicator is RelayTxStruct, ILockable, Initializable {
         require(receiptSigner == relayTxId.toEthSignedMessageHash().recover(_sig), "Relayer did not sign the receipt.");
 
         // Look up if the relayer responded in the DataRegistry
-        require(!checkDataRegistryRecord(relayTxId, _relayTx.deadline), "No compensation as relay transaction was completed in time.");
+        require(
+            !checkDataRegistryRecord(relayTxId, _relayTx.deadline),
+            "No compensation as relay transaction was completed in time."
+        );
 
         compensationRecords[relayTxId].status = CompensationStatus.PENDING;
         compensationRecords[relayTxId].deadline = block.number + compensationPeriod;
 
-        emit RequestCompensation(relayTxId, _relayTx.from, _relayTx.compensation, compensationRecords[relayTxId].deadline);
+        emit RequestCompensation(
+            relayTxId,
+            _relayTx.from,
+            _relayTx.compensation,
+            compensationRecords[relayTxId].deadline
+        );
     }
 
     // @param _relayTxId Unique identification hash for relay tx
     // @param _deadline Expiry time from relay tx
     // @dev The DataRegistry records when the relay tx was submitted (block number).
     //      So we only care about the earliest record in a shard.
-    function checkDataRegistryRecord(bytes32 _relayTxId, uint _deadline) internal view returns (bool) {
+    function checkDataRegistryRecord(bytes32 _relayTxId, uint256 _deadline) internal view returns (bool) {
         // Look through every shard (should only be two)
-        uint shards = relay.getTotalShards();
-        for(uint i=0; i<shards; i++) {
-
+        uint256 shards = relay.getTotalShards();
+        for (uint256 i = 0; i < shards; i++) {
             // Relay's DataRegistry only stores timestamp.
-            uint response = relay.fetchRecord(i, _relayTxId);
+            uint256 response = relay.fetchRecord(i, _relayTxId);
 
             // It cannot be 0 as this implies no response at all!
-            if(response > 0) {
-
+            if (response > 0) {
                 // We should find one response before the deadline
-                if(_deadline >= response) {
+                if (_deadline >= response) {
                     return true;
                 }
             }
         }
 
-       // No response.
-       return false;
+        // No response.
+        return false;
     }
 
     // @param _relayTx Relay tx has the compensation information.
     // @dev Relayer sends compensation to the user based on the compensation amount set in the relay tx.
     function issueCompensation(RelayTx memory _relayTx) public payable {
         bytes32 relayTxId = computeRelayTxId(_relayTx);
-        require(compensationRecords[relayTxId].status == CompensationStatus.PENDING, "Compensation record must be in PENDING mode.");
+        require(
+            compensationRecords[relayTxId].status == CompensationStatus.PENDING,
+            "Compensation record must be in PENDING mode."
+        );
         require(_relayTx.compensation == msg.value, "Relayer must compensate the exact value.");
         compensationRecords[relayTxId].status = CompensationStatus.COMPENSATED;
         emit CompensationIssued(relayTxId, msg.sender, _relayTx.from, msg.value);
@@ -159,9 +170,12 @@ contract Adjudicator is RelayTxStruct, ILockable, Initializable {
     // @dev User can withdraw the compensation after it was issued by the relayer (in issueCompensation()).
     function withdrawCompensation(RelayTx memory _relayTx) public {
         bytes32 relayTxId = computeRelayTxId(_relayTx);
-        require(compensationRecords[relayTxId].status == CompensationStatus.COMPENSATED, "Compensation record must be in COMPENSATED mode.");
+        require(
+            compensationRecords[relayTxId].status == CompensationStatus.COMPENSATED,
+            "Compensation record must be in COMPENSATED mode."
+        );
         compensationRecords[relayTxId].status = CompensationStatus.RESOLVED;
-        uint toSend = _relayTx.compensation;
+        uint256 toSend = _relayTx.compensation;
         _relayTx.from.transfer(toSend);
     }
 
@@ -169,7 +183,10 @@ contract Adjudicator is RelayTxStruct, ILockable, Initializable {
     // Called by the user if their compensation is not issued in a timely manner.
     function lock(RelayTx memory _relayTx) public {
         bytes32 relayTxId = computeRelayTxId(_relayTx);
-        require(compensationRecords[relayTxId].status == CompensationStatus.PENDING, "CompensationStatus must still be PENDING.");
+        require(
+            compensationRecords[relayTxId].status == CompensationStatus.PENDING,
+            "CompensationStatus must still be PENDING."
+        );
         require(block.number > compensationRecords[relayTxId].deadline, "Deadline for compensation must have passed.");
 
         // damnation.😱
@@ -177,10 +194,12 @@ contract Adjudicator is RelayTxStruct, ILockable, Initializable {
         emit Locked();
     }
 
-    function getChainID() public pure returns(uint) {
+    function getChainID() public pure returns (uint256) {
         // Fetch chainId
         uint256 chainId;
-        assembly {chainId := chainid() }
+        assembly {
+            chainId := chainid()
+        }
         return chainId;
     }
 }

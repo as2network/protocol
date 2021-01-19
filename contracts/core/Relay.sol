@@ -13,14 +13,21 @@ import "../payment/PaymentDeposit.sol";
 contract Relay is DataRegistry, RelayTxStruct, PaymentDeposit {
     mapping(address => bool) public relayers;
 
-    event RelayExecuted(bytes32 indexed relayTxId, bool success, address indexed from, address indexed to, uint gasUsed, uint gasPrice);
+    event RelayExecuted(
+        bytes32 indexed relayTxId,
+        bool success,
+        address indexed from,
+        address indexed to,
+        uint256 gasUsed,
+        uint256 gasPrice
+    );
     event RelayerInstalled(address relayer);
     event RelayerUninstalled(address relayer);
     event OutOfCoins();
 
     // @param _newOwner Owner can install relayers
     // @dev Behind the scenes, the DataRegistry is creating two shards via an internal constructor.
-    function initialize(address _newOwner, uint _shardInterval) public initializer onlyOwner {
+    function initialize(address _newOwner, uint256 _shardInterval) public initializer onlyOwner {
         PaymentDeposit.initialize(_newOwner);
         DataRegistry.initialize(_shardInterval);
     }
@@ -30,7 +37,7 @@ contract Relay is DataRegistry, RelayTxStruct, PaymentDeposit {
     // @dev Only authorised relayer can execute relay jobs and they are refunded gas at the end of the call.
     //      Critically, if the relay job fails, we can simply catch exception and continue to record the log.
     function execute(RelayTx memory _relayTx, bool _gasRefund) public {
-        uint gasStarted = gasleft();
+        uint256 gasStarted = gasleft();
 
         // The msg.sender check protects against two problems:
         // - Replay attacks across chains (chainid in transaction)
@@ -41,7 +48,7 @@ contract Relay is DataRegistry, RelayTxStruct, PaymentDeposit {
         bytes32 relayTxId = computeRelayTxId(_relayTx);
 
         // Only record log if a compensation is required
-        if(_relayTx.compensation != 0) {
+        if (_relayTx.compensation != 0) {
             // Record a log of executing the job, Each shard only records the first job since the first job has the
             // earliest timestamp.
             setRecord(relayTxId, block.number);
@@ -62,17 +69,19 @@ contract Relay is DataRegistry, RelayTxStruct, PaymentDeposit {
         require(gasleft() > (_relayTx.gasLimit + _relayTx.gasLimit / 63) + 1000, "Not enough gas supplied.");
 
         // execute the actual call
-        (bool success,) = _relayTx.to.call.gas(_relayTx.gasLimit)(_relayTx.data);
+        (bool success, ) = _relayTx.to.call.gas(_relayTx.gasLimit)(_relayTx.data);
 
         // we add some gas using hard coded opcode pricing for computation that we could measure
-        uint gasUsed = gasStarted - gasleft() + // execute cost
-                            (msg.data.length * 16) + // data input cost (add 1 for gasRefund bool)
-                            2355 + // cost of RelayExecuted event - 375 + 375 + 375 + (160 * 8)
-                            21000; // transaction cost
+        uint256 gasUsed =
+            gasStarted -
+                gasleft() + // execute cost
+                (msg.data.length * 16) + // data input cost (add 1 for gasRefund bool)
+                2355 + // cost of RelayExecuted event - 375 + 375 + 375 + (160 * 8)
+                21000; // transaction cost
 
-        if(_gasRefund) {
+        if (_gasRefund) {
             gasUsed += (9000 + 1000); // refund cost, send + change for calculations
-            if(!msg.sender.send(gasUsed*tx.gasprice)) {
+            if (!msg.sender.send(gasUsed * tx.gasprice)) {
                 // Notify admin we need to provide more refund to this contract
                 emit OutOfCoins();
             }
@@ -83,7 +92,7 @@ contract Relay is DataRegistry, RelayTxStruct, PaymentDeposit {
 
     /// @param _relayer New relayer address
     /// @dev Only the owner can install a new relayer
-    function installRelayer(address _relayer) onlyOwner public {
+    function installRelayer(address _relayer) public onlyOwner {
         require(!relayers[_relayer], "Relayer is already installed.");
         require(_relayer != address(this), "The relay contract cannot be installed as a relayer.");
 
@@ -92,8 +101,8 @@ contract Relay is DataRegistry, RelayTxStruct, PaymentDeposit {
     }
 
     /// @param _relayer New relayer address
-   /// @dev Only the owner can uninstall a new relayer
-    function uninstallRelayer(address _relayer) onlyOwner public {
+    /// @dev Only the owner can uninstall a new relayer
+    function uninstallRelayer(address _relayer) public onlyOwner {
         require(relayers[_relayer], "Relayer must be installed.");
 
         relayers[_relayer] = false;
