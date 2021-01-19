@@ -1,10 +1,10 @@
 {
-  "name": "development-boilerplate",
+  "name": "@as2network/ethereum-service",
   "version": "0.0.1",
   "description": "development",
   "repository": {
     "type": "git",
-    "url": "git@github.com:$USER/$REPO"
+    "url": "git@github.com:as2network/protocol"
   },
   "license": "MIT",
   "dependencies": {
