@@ -1,9 +1,6 @@
-# `AS2 Network Ethereum Transaction Service`
+# AS2/EDINT Protocol 
 
-  </p>
-</p>
-<br />
-<br />
+> B2B Messagebus system 
 
 ## Developer Tools 🛠️
 
