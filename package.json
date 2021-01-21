@@ -1,6 +1,6 @@
 {
   "name": "@as2network/ethereum-service",
-  "version": "0.1.0
+  "version": "0.1.0",
   "main:" "index.ts",
   "description": "development",
   "repository": {
