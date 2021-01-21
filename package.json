@@ -1,6 +1,7 @@
 {
   "name": "@as2network/ethereum-service",
-  "version": "0.0.1",
+  "version": "0.1.0
+  "main:" "index.ts",
   "description": "development",
   "repository": {
     "type": "git",
@@ -12,6 +13,7 @@
   },
   "devDependencies": {
     "@openzeppelin/test-helpers": "^0.5.5",
+    "@zoltu/typescript-transformer-append-js-extension": "1.0.1",
     "chai": "^4.2.0",
     "coveralls": "^3.1.0",
     "eslint": "^6.8.0",
@@ -21,14 +23,14 @@
     "eslint-plugin-promise": "^4.0.1",
     "eslint-plugin-standard": "^4.0.0",
     "eth-gas-reporter": "^0.2.17",
-    "ganache-cli": "^6.9.1",
     "prettier": "^2.2.1",
     "prettier-plugin-solidity": "^1.0.0-beta.3",
-    "solc": "^0.5.17",
     "solidity-coverage": "^0.7.5",
     "solium": "^1.2.5",
     "truffle": "^5.1.24",
-    "truffle-flattener": "^1.4.4"
+		"typescript": "3.9.3",
+		"ts-node": "8.10.1",
+		"ttypescript": "1.5.10"
   },
   "scripts": {
     "test": "scripts/test.sh",
@@ -39,6 +41,11 @@
     "lint:sol": "solium -d .",
     "lint:sol:fix": "solium -d . --fix",
     "lint": "yarn run lint:js && yarn run lint:sol",
-    "lint:fix": "yarn run lint:js:fix && yarn run lint:sol:fix"
+    "lint:fix": "yarn run lint:js:fix && yarn run lint:sol:fix",
+     "build": "npx ttsc --project ./tsconfig-esm.json && npx ttsc --project ./tsconfig-cjs.json",
+		"watch-esm": "npx ttsc --project ./tsconfig-esm.json --watch",
+		"watch-cjs": "npx ttsc --project ./tsconfig-cjs.json --watch",
+		"prepublishOnly": "npm run build && cd ../demo && npm run build && npm run test && cd ../sdk && node --eval \"require('fs').copyFile('../README.md', 'README.md', error => {if(error) throw error})\"",
+		"postpublish": "node --eval \"require('fs').unlink('README.md', error => {if(error) throw error})\""
   }
 }
