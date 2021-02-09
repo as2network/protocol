@@ -3,6 +3,16 @@
 > B2B Meta Transaction Messagebus system 
 
 
+### EIP2612 Methods
+`permit()`
+
+```solidity
+function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)
+```
+
+Allows a user to permit another account (or contract) to use their funds using a signed message.
+This enables gas-less transactions and single approval/transfer transactions.
+
 ## Meta Transaction Relay
 
 > Example of encoding 
